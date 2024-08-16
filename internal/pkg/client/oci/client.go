@@ -19,16 +19,24 @@
 package oci
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
+
+	"oras.land/oras-go/v2/content/memory"
+	"oras.land/oras-go/v2/registry/remote"
 
 	"github.com/bomctl/bomctl/internal/pkg/url"
 )
 
 var errMultipleSBOMs = errors.New("more than one SBOM document identified in OCI image")
 
-type Client struct{}
+type Client struct {
+	ctx      context.Context
+	memStore *memory.Store
+	repo     *remote.Repository
+}
 
 func (*Client) Name() string {
 	return "OCI"

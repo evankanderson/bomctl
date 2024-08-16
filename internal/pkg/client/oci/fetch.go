@@ -46,46 +46,43 @@ func (client *Client) Fetch(fetchURL string, opts *options.FetchOptions) ([]byte
 		}
 	}
 
-	var (
-		err                                error
-		manifestDescriptor, sbomDescriptor *ocispec.Descriptor
-		repo                               *remote.Repository
-		sbomData                           []byte
-		successors                         []ocispec.Descriptor
-	)
-
-	if repo, err = createRepository(parsedURL, auth); err != nil {
+	var err error
+	if client.repo, err = client.createRepository(parsedURL, auth); err != nil {
 		return nil, err
 	}
 
-	ctx := context.Background()
-	memStore := memory.New()
+	client.ctx = context.Background()
+	client.memStore = memory.New()
 
 	ref := parsedURL.Tag
 	if ref == "" {
 		ref = parsedURL.Digest
 	}
 
-	if manifestDescriptor, err = fetchManifestDescriptor(ctx, memStore, repo, ref); err != nil {
+	var manifestDescriptor, sbomDescriptor *ocispec.Descriptor
+
+	if manifestDescriptor, err = client.fetchManifestDescriptor(ref); err != nil {
 		return nil, err
 	}
 
-	if successors, err = getManifestChildren(ctx, memStore, manifestDescriptor); err != nil {
+	successors, err := client.getManifestChildren(manifestDescriptor)
+	if err != nil {
 		return nil, err
 	}
 
-	if sbomDescriptor, err = getSBOMDescriptor(successors); err != nil {
+	if sbomDescriptor, err = client.getSBOMDescriptor(successors); err != nil {
 		return nil, err
 	}
 
-	if sbomData, err = pullSBOM(ctx, memStore, sbomDescriptor); err != nil {
+	sbomData, err := client.pullSBOM(sbomDescriptor)
+	if err != nil {
 		return nil, err
 	}
 
 	return sbomData, nil
 }
 
-func createRepository(parsedURL *url.ParsedURL, auth *url.BasicAuth) (*remote.Repository, error) {
+func (*Client) createRepository(parsedURL *url.ParsedURL, auth *url.BasicAuth) (*remote.Repository, error) {
 	repoPath := strings.Trim(parsedURL.Hostname, "/") + "/" + strings.Trim(parsedURL.Path, "/")
 
 	repo, err := remote.NewRepository(repoPath)
@@ -107,10 +104,8 @@ func createRepository(parsedURL *url.ParsedURL, auth *url.BasicAuth) (*remote.Re
 	return repo, nil
 }
 
-func fetchManifestDescriptor(
-	ctx context.Context, memStore *memory.Store, repo *remote.Repository, tag string,
-) (*ocispec.Descriptor, error) {
-	manifestDescriptor, err := oras.Copy(ctx, repo, tag, memStore, tag,
+func (client *Client) fetchManifestDescriptor(tag string) (*ocispec.Descriptor, error) {
+	manifestDescriptor, err := oras.Copy(client.ctx, client.repo, tag, client.memStore, tag,
 		oras.CopyOptions{CopyGraphOptions: oras.CopyGraphOptions{FindSuccessors: nil}},
 	)
 	if err != nil {
@@ -120,11 +115,9 @@ func fetchManifestDescriptor(
 	return &manifestDescriptor, nil
 }
 
-func getManifestChildren(
-	ctx context.Context, memStore *memory.Store, manifestDescriptor *ocispec.Descriptor,
-) ([]ocispec.Descriptor, error) {
+func (client *Client) getManifestChildren(manifestDescriptor *ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 	// Get all "children" of the manifest
-	successors, err := content.Successors(ctx, memStore, *manifestDescriptor)
+	successors, err := content.Successors(client.ctx, client.memStore, *manifestDescriptor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve manifest layers: %w", err)
 	}
@@ -132,7 +125,7 @@ func getManifestChildren(
 	return successors, nil
 }
 
-func getSBOMDescriptor(successors []ocispec.Descriptor) (*ocispec.Descriptor, error) {
+func (*Client) getSBOMDescriptor(successors []ocispec.Descriptor) (*ocispec.Descriptor, error) {
 	var (
 		sbomDescriptor ocispec.Descriptor
 		sbomDigests    []string
@@ -164,8 +157,8 @@ func getSBOMDescriptor(successors []ocispec.Descriptor) (*ocispec.Descriptor, er
 	return &sbomDescriptor, nil
 }
 
-func pullSBOM(ctx context.Context, memStore *memory.Store, sbomDescriptor *ocispec.Descriptor) ([]byte, error) {
-	sbomData, err := content.FetchAll(ctx, memStore, *sbomDescriptor)
+func (client *Client) pullSBOM(sbomDescriptor *ocispec.Descriptor) ([]byte, error) {
+	sbomData, err := content.FetchAll(client.ctx, client.memStore, *sbomDescriptor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch SBOM data: %w", err)
 	}
