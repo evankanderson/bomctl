@@ -23,9 +23,12 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"oras.land/oras-go/v2/content/memory"
 	"oras.land/oras-go/v2/registry/remote"
+	orasauth "oras.land/oras-go/v2/registry/remote/auth"
+	"oras.land/oras-go/v2/registry/remote/retry"
 
 	"github.com/bomctl/bomctl/internal/pkg/url"
 )
@@ -96,4 +99,28 @@ func (client *Client) Parse(rawURL string) *url.ParsedURL {
 		Tag:      results["tag"],
 		Digest:   results["digest"],
 	}
+}
+
+func (client *Client) createRepository(parsedURL *url.ParsedURL, auth *url.BasicAuth) error {
+	repoPath := strings.Trim(parsedURL.Hostname, "/") + "/" + strings.Trim(parsedURL.Path, "/")
+
+	repo, err := remote.NewRepository(repoPath)
+	if err != nil {
+		return fmt.Errorf("error creating OCI registry repository %s: %w", repoPath, err)
+	}
+
+	if auth != nil {
+		repo.Client = &orasauth.Client{
+			Client: retry.DefaultClient,
+			Cache:  orasauth.DefaultCache,
+			Credential: orasauth.StaticCredential(parsedURL.Hostname, orasauth.Credential{
+				Username: auth.Username,
+				Password: auth.Password,
+			}),
+		}
+	}
+
+	client.repo = repo
+
+	return nil
 }

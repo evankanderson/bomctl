@@ -28,9 +28,6 @@ import (
 	oras "oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/content/memory"
-	"oras.land/oras-go/v2/registry/remote"
-	orasauth "oras.land/oras-go/v2/registry/remote/auth"
-	"oras.land/oras-go/v2/registry/remote/retry"
 
 	"github.com/bomctl/bomctl/internal/pkg/options"
 	"github.com/bomctl/bomctl/internal/pkg/url"
@@ -46,8 +43,8 @@ func (client *Client) Fetch(fetchURL string, opts *options.FetchOptions) ([]byte
 		}
 	}
 
-	var err error
-	if client.repo, err = client.createRepository(parsedURL, auth); err != nil {
+	err := client.createRepository(parsedURL, auth)
+	if err != nil {
 		return nil, err
 	}
 
@@ -80,28 +77,6 @@ func (client *Client) Fetch(fetchURL string, opts *options.FetchOptions) ([]byte
 	}
 
 	return sbomData, nil
-}
-
-func (*Client) createRepository(parsedURL *url.ParsedURL, auth *url.BasicAuth) (*remote.Repository, error) {
-	repoPath := strings.Trim(parsedURL.Hostname, "/") + "/" + strings.Trim(parsedURL.Path, "/")
-
-	repo, err := remote.NewRepository(repoPath)
-	if err != nil {
-		return nil, fmt.Errorf("error creating OCI registry repository %s: %w", repoPath, err)
-	}
-
-	if auth != nil {
-		repo.Client = &orasauth.Client{
-			Client: retry.DefaultClient,
-			Cache:  orasauth.DefaultCache,
-			Credential: orasauth.StaticCredential(parsedURL.Hostname, orasauth.Credential{
-				Username: auth.Username,
-				Password: auth.Password,
-			}),
-		}
-	}
-
-	return repo, nil
 }
 
 func (client *Client) fetchManifestDescriptor(tag string) (*ocispec.Descriptor, error) {
