@@ -22,8 +22,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
-	"github.com/charmbracelet/log"
 	"github.com/protobom/protobom/pkg/sbom"
 	"github.com/protobom/storage/backends/ent"
 
