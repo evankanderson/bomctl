@@ -80,9 +80,9 @@ func (client *Client) Fetch(fetchURL string, opts *options.FetchOptions) ([]byte
 }
 
 func (client *Client) fetchManifestDescriptor(tag string) (*ocispec.Descriptor, error) {
-	manifestDescriptor, err := oras.Copy(client.ctx, client.repo, tag, client.memStore, tag,
-		oras.CopyOptions{CopyGraphOptions: oras.CopyGraphOptions{FindSuccessors: nil}},
-	)
+	manifestDescriptor, err := oras.Copy(client.ctx, client.repo, tag, client.memStore, tag, oras.CopyOptions{
+		CopyGraphOptions: oras.CopyGraphOptions{FindSuccessors: nil},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest descriptor: %w", err)
 	}
@@ -106,16 +106,13 @@ func (*Client) getSBOMDescriptor(successors []ocispec.Descriptor) (*ocispec.Desc
 		sbomDigests    []string
 	)
 
-	for _, s := range successors {
-		if slices.Contains([]string{
-			"application/vnd.cyclonedx",
-			"application/vnd.cyclonedx+json",
-			"application/spdx",
-			"application/spdx+json",
-			"text/spdx",
-		}, s.MediaType) {
-			sbomDescriptor = s
-			sbomDigests = append(sbomDigests, s.Digest.String())
+	for _, descriptor := range successors {
+		if slices.ContainsFunc(
+			[]string{"application/vnd.cyclonedx", "application/spdx", "text/spdx"},
+			func(s string) bool { return strings.HasPrefix(descriptor.MediaType, s) },
+		) {
+			sbomDescriptor = descriptor
+			sbomDigests = append(sbomDigests, descriptor.Digest.String())
 		}
 	}
 
