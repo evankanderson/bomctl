@@ -148,6 +148,21 @@ Flags:
   -h, --help   help for list
 ```
 
+### Push
+
+Push stored SBOM file to remote URL or filesystem.
+
+```shell
+bomctl push [flags] SBOM_ID DEST_PATH
+
+Flags:
+  -e, --encoding string   output encoding [spdx: [json], cyclonedx: [json, xml]] (default "json")
+  -f, --format string     SBOM output format [spdx, spdx-2.3, cyclonedx, cyclonedx-1.0, cyclonedx-1.1, cyclonedx-1.2, cyclonedx-1.3, cyclonedx-1.4, cyclonedx-1.5] (default "cyclonedx")
+  -h, --help              help for push
+      --netrc             Use .netrc file for authentication to remote hosts
+      --tree              Recursively push all SBOMs in external reference tree
+```
+
 ## Roadmap
 
 The project is focused on building an architecture that enables reading in, operating on, and reading
