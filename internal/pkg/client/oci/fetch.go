@@ -20,6 +20,7 @@ package oci
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -56,60 +57,40 @@ func (client *Client) Fetch(fetchURL string, opts *options.FetchOptions) ([]byte
 		ref = parsedURL.Digest
 	}
 
-	var manifestDescriptor, sbomDescriptor *ocispec.Descriptor
+	copyOpts := oras.CopyOptions{CopyGraphOptions: oras.CopyGraphOptions{FindSuccessors: nil}}
 
-	if manifestDescriptor, err = client.fetchManifestDescriptor(ref); err != nil {
-		return nil, err
-	}
-
-	successors, err := client.getManifestChildren(manifestDescriptor)
-	if err != nil {
-		return nil, err
-	}
-
-	if sbomDescriptor, err = client.getSBOMDescriptor(successors); err != nil {
-		return nil, err
-	}
-
-	sbomData, err := client.pullSBOM(sbomDescriptor)
-	if err != nil {
-		return nil, err
-	}
-
-	return sbomData, nil
-}
-
-func (client *Client) fetchManifestDescriptor(tag string) (*ocispec.Descriptor, error) {
-	manifestDescriptor, err := oras.Copy(client.ctx, client.repo, tag, client.memStore, tag, oras.CopyOptions{
-		CopyGraphOptions: oras.CopyGraphOptions{FindSuccessors: nil},
-	})
+	manifestDescriptor, err := oras.Copy(client.ctx, client.repo, ref, client.memStore, ref, copyOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest descriptor: %w", err)
 	}
 
-	return &manifestDescriptor, nil
+	opts.Logger.Debugf("manifest descriptor: %+v", descriptorJSON(&manifestDescriptor))
+
+	sbomDescriptor, err := client.getSBOMDescriptor(&manifestDescriptor)
+	if err != nil {
+		return nil, err
+	}
+
+	opts.Logger.Debugf("SBOM descriptor: %+v", descriptorJSON(&sbomDescriptor))
+
+	return client.pullSBOM(&sbomDescriptor)
 }
 
-func (client *Client) getManifestChildren(manifestDescriptor *ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+func (client *Client) getSBOMDescriptor(manifestDescriptor *ocispec.Descriptor) (ocispec.Descriptor, error) {
 	// Get all "children" of the manifest
 	successors, err := content.Successors(client.ctx, client.memStore, *manifestDescriptor)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve manifest layers: %w", err)
+		return ocispec.DescriptorEmptyJSON, fmt.Errorf("failed to retrieve manifest layers: %w", err)
 	}
 
-	return successors, nil
-}
-
-func (*Client) getSBOMDescriptor(successors []ocispec.Descriptor) (*ocispec.Descriptor, error) {
-	var (
-		sbomDescriptor ocispec.Descriptor
-		sbomDigests    []string
-	)
+	sbomDescriptor := ocispec.DescriptorEmptyJSON
+	sbomDigests := []string{}
 
 	for _, descriptor := range successors {
-		if slices.ContainsFunc(
-			[]string{"application/vnd.cyclonedx", "application/spdx", "text/spdx"},
-			func(s string) bool { return strings.HasPrefix(descriptor.MediaType, s) },
+		if slices.ContainsFunc([]string{"application/vnd.cyclonedx", "application/spdx", "text/spdx"},
+			func(s string) bool {
+				return strings.HasPrefix(descriptor.MediaType, s)
+			},
 		) {
 			sbomDescriptor = descriptor
 			sbomDigests = append(sbomDigests, descriptor.Digest.String())
@@ -123,10 +104,10 @@ func (*Client) getSBOMDescriptor(successors []ocispec.Descriptor) (*ocispec.Desc
 			"\n\t\t",
 		)
 
-		return nil, fmt.Errorf("%w.\n\t%s", errMultipleSBOMs, digestString)
+		return ocispec.DescriptorEmptyJSON, fmt.Errorf("%w.\n\t%s", errMultipleSBOMs, digestString)
 	}
 
-	return &sbomDescriptor, nil
+	return sbomDescriptor, nil
 }
 
 func (client *Client) pullSBOM(sbomDescriptor *ocispec.Descriptor) ([]byte, error) {
@@ -136,4 +117,13 @@ func (client *Client) pullSBOM(sbomDescriptor *ocispec.Descriptor) ([]byte, erro
 	}
 
 	return sbomData, nil
+}
+
+func descriptorJSON(obj *ocispec.Descriptor) string {
+	output, err := json.MarshalIndent(obj, "", "  ")
+	if err != nil {
+		return ""
+	}
+
+	return string(output)
 }
