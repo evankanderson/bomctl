@@ -22,8 +22,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
 	"regexp"
-	"strings"
 
 	"oras.land/oras-go/v2/content/memory"
 	"oras.land/oras-go/v2/registry/remote"
@@ -102,7 +102,7 @@ func (client *Client) Parse(rawURL string) *url.ParsedURL {
 }
 
 func (client *Client) createRepository(parsedURL *url.ParsedURL, auth *url.BasicAuth) error {
-	repoPath := strings.Trim(parsedURL.Hostname, "/") + "/" + strings.Trim(parsedURL.Path, "/")
+	repoPath := path.Join(parsedURL.Hostname, parsedURL.Path)
 
 	repo, err := remote.NewRepository(repoPath)
 	if err != nil {
