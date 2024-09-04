@@ -24,7 +24,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"path/filepath"
 
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -74,10 +73,7 @@ func (client *Client) packManifest(opts *options.PushOptions, buf *bytes.Buffer)
 }
 
 func getDocument(id string, opts *options.Options) (*sbom.Document, error) {
-	backend, err := db.NewBackend(
-		db.WithDatabaseFile(filepath.Join(opts.CacheDir, db.DatabaseFile)),
-		db.WithOptions(opts),
-	)
+	backend, err := db.BackendFromContext(opts.Context())
 	if err != nil {
 		return nil, fmt.Errorf("%w", err)
 	}

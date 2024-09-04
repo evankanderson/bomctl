@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -114,6 +115,10 @@ func rootCmd() *cobra.Command {
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			verbosity, err := cmd.Flags().GetCount("verbose")
 			cobra.CheckErr(err)
+
+			if verbosity > 0 {
+				log.SetLevel(log.DebugLevel)
+			}
 
 			cacheDir, err := cmd.Flags().GetString("cache-dir")
 			cobra.CheckErr(err)
