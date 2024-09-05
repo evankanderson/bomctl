@@ -20,7 +20,6 @@ package oci
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -64,14 +63,14 @@ func (client *Client) Fetch(fetchURL string, opts *options.FetchOptions) ([]byte
 		return nil, fmt.Errorf("failed to fetch manifest descriptor: %w", err)
 	}
 
-	opts.Logger.Debugf("manifest descriptor: %+v", descriptorJSON(&manifestDescriptor))
+	opts.Logger.Debug("Fetched manifest", "descriptor", descriptorJSON(&manifestDescriptor))
 
 	sbomDescriptor, err := client.getSBOMDescriptor(&manifestDescriptor)
 	if err != nil {
 		return nil, err
 	}
 
-	opts.Logger.Debugf("SBOM descriptor: %+v", descriptorJSON(&sbomDescriptor))
+	opts.Logger.Debug("Found SBOM", "descriptor", descriptorJSON(&sbomDescriptor))
 
 	return client.pullSBOM(&sbomDescriptor)
 }
@@ -117,13 +116,4 @@ func (client *Client) pullSBOM(sbomDescriptor *ocispec.Descriptor) ([]byte, erro
 	}
 
 	return sbomData, nil
-}
-
-func descriptorJSON(obj *ocispec.Descriptor) string {
-	output, err := json.MarshalIndent(obj, "", "  ")
-	if err != nil {
-		return ""
-	}
-
-	return string(output)
 }

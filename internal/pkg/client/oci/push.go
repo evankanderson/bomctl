@@ -45,16 +45,15 @@ type ociClientWriter struct {
 
 func (client *Client) packManifest(opts *options.PushOptions, buf *bytes.Buffer) (ocispec.Descriptor, error) {
 	checksum := sha256.Sum256(buf.Bytes())
-
+	artifactType := getMediaType(opts)
 	sbomDescriptor := ocispec.Descriptor{
-		MediaType: getMediaType(opts),
+		MediaType: artifactType,
 		Digest:    digest.NewDigestFromBytes(digest.SHA256, checksum[:]),
 		Size:      int64(buf.Len()),
-		Data:      buf.Bytes(),
 	}
 
 	// Push SBOM descriptor blob to memory store.
-	if err := client.memStore.Push(client.ctx, sbomDescriptor, bytes.NewReader(sbomDescriptor.Data)); err != nil {
+	if err := client.memStore.Push(client.ctx, sbomDescriptor, bytes.NewReader(buf.Bytes())); err != nil {
 		return ocispec.DescriptorEmptyJSON, fmt.Errorf("failed to push to memory store: %w", err)
 	}
 
@@ -62,7 +61,7 @@ func (client *Client) packManifest(opts *options.PushOptions, buf *bytes.Buffer)
 		client.ctx,
 		client.memStore,
 		oras.PackManifestVersion1_1,
-		ocispec.MediaTypeImageManifest,
+		artifactType,
 		oras.PackManifestOptions{Layers: []ocispec.Descriptor{sbomDescriptor}},
 	)
 	if err != nil {
@@ -146,14 +145,13 @@ func (client *Client) Push(sbomID, pushURL string, opts *options.PushOptions) er
 		return fmt.Errorf("%w", err)
 	}
 
-	opts.Logger.Debug("Packed manifest", "descriptor", manifestDescriptor)
+	opts.Logger.Debug("Packed manifest", "descriptor", descriptorJSON(&manifestDescriptor))
 
-	copied, err := oras.Copy(client.ctx, client.memStore, tag, client.repo, tag, oras.DefaultCopyOptions)
-	if err != nil {
+	if _, err := oras.Copy(client.ctx, client.memStore, tag, client.repo, tag, oras.DefaultCopyOptions); err != nil {
 		return fmt.Errorf("%w", err)
 	}
 
-	opts.Logger.Debug("Pushed manifest", "descriptor", copied)
+	opts.Logger.Debug("Copied manifest", "url", pushURL)
 
 	return nil
 }
