@@ -163,6 +163,18 @@ Flags:
       --tree              Recursively push all SBOMs in external reference tree
 ```
 
+### Merge
+
+Merge specified cached SBOM documents.
+
+```shell
+  bomctl merge [flags] DOCUMENT_ID...
+
+Flags:
+  -h, --help          help for merge
+  -n, --name string   Name of merged document
+```
+
 ## Roadmap
 
 The project is focused on building an architecture that enables reading in, operating on, and reading

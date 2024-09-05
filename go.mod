@@ -6,6 +6,7 @@ require (
 	github.com/charmbracelet/lipgloss v0.12.1
 	github.com/charmbracelet/log v0.4.0
 	github.com/go-git/go-git/v5 v5.12.0
+	github.com/google/uuid v1.6.0
 	github.com/jdx/go-netrc v1.0.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0
@@ -15,6 +16,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
+	google.golang.org/protobuf v1.34.2
 	oras.land/oras-go/v2 v2.5.0
 )
 
@@ -45,7 +47,6 @@ require (
 	github.com/go-openapi/inflect v0.19.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/hcl/v2 v2.13.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
