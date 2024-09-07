@@ -39,6 +39,11 @@ type (
 
 	Option func(*Options)
 
+	AliasOptions struct {
+		*Options
+		UseAlias bool
+	}
+
 	ExportOptions struct {
 		*Options
 		OutputFile *os.File
@@ -46,14 +51,18 @@ type (
 	}
 
 	FetchOptions struct {
-		OutputFile *os.File
 		*Options
-		UseNetRC bool
+		OutputFile *os.File
+		Alias      string
+		Tags       []string
+		UseNetRC   bool
 	}
 
 	ImportOptions struct {
 		*Options
 		InputFiles []*os.File
+		Alias      []string
+		Tags       []string
 	}
 
 	MergeOptions struct {

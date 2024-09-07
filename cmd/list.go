@@ -26,6 +26,8 @@ import (
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/protobom/protobom/pkg/sbom"
 	"github.com/spf13/cobra"
+
+	"github.com/bomctl/bomctl/internal/pkg/db"
 )
 
 const (
@@ -45,6 +47,8 @@ const (
 )
 
 func listCmd() *cobra.Command {
+	tags := []string{}
+
 	listCmd := &cobra.Command{
 		Use:     "list [flags] SBOM_ID...",
 		Aliases: []string{"ls"},
@@ -56,18 +60,25 @@ func listCmd() *cobra.Command {
 
 			defer backend.CloseClient()
 
-			documents, err := backend.GetDocumentsByID(args...)
+			documents, err := backend.GetDocumentsByIDOrAlias(args...)
 			if err != nil {
 				backend.Logger.Fatalf("failed to get documents: %v", err)
 			}
 
+			if len(tags) > 0 {
+				documents, err = backend.FilterDocumentsByTag(documents, tags...)
+				if err != nil {
+					backend.Logger.Fatalf("failed to get documents: %v", err)
+				}
+			}
+
 			rows := [][]string{}
 			for _, document := range documents {
-				rows = append(rows, getRow(document))
+				rows = append(rows, getRow(document, backend))
 			}
 
 			fmt.Fprintf(os.Stdout, "\n%s\n\n", table.New().
-				Headers("ID", "Version", "# Nodes").
+				Headers("ID", "Alias", "Version", "# Nodes").
 				Rows(rows...).
 				BorderTop(false).
 				BorderBottom(false).
@@ -79,6 +90,9 @@ func listCmd() *cobra.Command {
 			)
 		},
 	}
+
+	listCmd.Flags().StringArrayVar(&tags, "tag", []string{},
+		"Tag(s) used to filter documents (can be specified multiple times)")
 
 	return listCmd
 }
@@ -107,11 +121,16 @@ func styleFunc(row, col int) lipgloss.Style {
 		MaxHeight(rowMaxHeight)
 }
 
-func getRow(doc *sbom.Document) []string {
+func getRow(doc *sbom.Document, backend *db.Backend) []string {
 	id := doc.Metadata.Name
 	if id == "" {
 		id = doc.Metadata.Id
 	}
 
-	return []string{id, doc.Metadata.Version, fmt.Sprint(len(doc.NodeList.Nodes))}
+	alias, err := backend.GetDocumentUniqueAnnotation(doc.Metadata.Id, db.BomctlAnnotationAlias)
+	if err != nil {
+		backend.Logger.Fatalf("failed to get alias: %v", err)
+	}
+
+	return []string{id, alias, doc.Metadata.Version, fmt.Sprint(len(doc.NodeList.Nodes))}
 }

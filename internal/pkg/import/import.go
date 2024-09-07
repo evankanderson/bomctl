@@ -22,12 +22,46 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/protobom/protobom/pkg/reader"
+	"github.com/protobom/protobom/pkg/sbom"
 
 	"github.com/bomctl/bomctl/internal/pkg/db"
 	"github.com/bomctl/bomctl/internal/pkg/options"
 )
+
+func parseDocument(sbomReader *reader.Reader, inputFile *os.File) (*sbom.Document, error) {
+	data, err := io.ReadAll(inputFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read from %s: %w", inputFile.Name(), err)
+	}
+
+	sbomDocument, err := sbomReader.ParseStream(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %s: %w", inputFile.Name(), err)
+	}
+
+	return sbomDocument, nil
+}
+
+func saveDocument(backend *db.Backend, document *sbom.Document, alias string, tags ...string) error {
+	if err := backend.AddDocument(document); err != nil {
+		return fmt.Errorf("failed to store document: %w", err)
+	}
+
+	if alias != "" {
+		if err := backend.SetUniqueAnnotation(document.Metadata.Id, db.BomctlAnnotationAlias, alias); err != nil {
+			return fmt.Errorf("failed to set alias: %w", err)
+		}
+	}
+
+	if err := backend.AddAnnotations(document.Metadata.Id, db.BomctlAnnotationTag, tags...); err != nil {
+		return fmt.Errorf("failed to set tags: %w", err)
+	}
+
+	return nil
+}
 
 func Import(opts *options.ImportOptions) error {
 	backend, err := db.BackendFromContext(opts.Context())
@@ -38,18 +72,18 @@ func Import(opts *options.ImportOptions) error {
 	sbomReader := reader.New()
 
 	for idx := range opts.InputFiles {
-		data, err := io.ReadAll(opts.InputFiles[idx])
+		document, err := parseDocument(sbomReader, opts.InputFiles[idx])
 		if err != nil {
-			return fmt.Errorf("failed to read from %s: %w", opts.InputFiles[idx].Name(), err)
+			return fmt.Errorf("failed to read SBOM document %w", err)
 		}
 
-		document, err := sbomReader.ParseStream(bytes.NewReader(data))
-		if err != nil {
-			return fmt.Errorf("failed to parse %s: %w", opts.InputFiles[idx].Name(), err)
+		alias := ""
+		if idx < len(opts.Alias) {
+			alias = opts.Alias[idx]
 		}
 
-		if err := backend.AddDocument(document); err != nil {
-			return fmt.Errorf("failed to store document: %w", err)
+		if err := saveDocument(backend, document, alias, opts.Tags...); err != nil {
+			return fmt.Errorf("failed to save document: %w", err)
 		}
 	}
 

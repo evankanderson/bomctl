@@ -82,9 +82,26 @@ cd bomctl
   - [fetch](#fetch)
   - [import](#import)
 - Operations are performed on the cached SBOMs
+  - [alias](#alias)
   - [list](#list)
+  - [tag](#tag)
 - SBOMs are outputted out of the cache
   - [export](#export)
+
+### Alias
+
+Edit the alias for an SBOM document.
+
+```shell
+bomctl alias [command]
+
+Subcommands:
+  remove      Remove the alias for a specific document
+  set         Set the alias for a specific document
+
+Flags:
+  -h, --help   help for alias
+```
 
 ### Export
 
@@ -131,7 +148,9 @@ Import SBOM files from either standard input or the local file system.
 bomctl import [flags] { - | FILE...}
 
 Flags:
+      --alias stringArray   Readable identifier(s) to apply to imported document(s) (specify multiple times for multiple documents)
   -h, --help   help for import
+      --tag stringArray     Tag(s) to apply to all imported documents (can be specified multiple times)
 ```
 
 ### List
@@ -146,6 +165,24 @@ Aliases:
 
 Flags:
   -h, --help   help for list
+      --tag stringArray   Tag(s) used to filter documents (can be specified multiple times)
+```
+
+### Tag
+
+Edit the tags of an SBOM document.
+
+```shell
+bomctl tag [command]
+
+Subcommands:
+  add         Add tags to a document
+  clear       Clear the tags of a document
+  list        List the tags of a document
+  remove      Remove the tags of a document
+
+Flags:
+  -h, --help   help for tag
 ```
 
 ### Push

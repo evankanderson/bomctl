@@ -51,6 +51,16 @@ func Fetch(sbomURL string, opts *options.FetchOptions) error {
 		return fmt.Errorf("error adding document: %w", err)
 	}
 
+	if opts.Alias != "" {
+		if err := backend.SetUniqueAnnotation(doc.Metadata.Id, db.BomctlAnnotationAlias, opts.Alias); err != nil {
+			return fmt.Errorf("failed to set alias: %w", err)
+		}
+	}
+
+	if err := backend.AddAnnotations(doc.Metadata.Id, db.BomctlAnnotationTag, opts.Tags...); err != nil {
+		return fmt.Errorf("failed to set tags: %w", err)
+	}
+
 	// Fetch externally referenced BOMs
 	return fetchExternalReferences(doc, backend, opts)
 }

@@ -164,6 +164,8 @@ func rootCmd() *cobra.Command {
 	rootCmd.AddCommand(listCmd())
 	rootCmd.AddCommand(mergeCmd())
 	rootCmd.AddCommand(pushCmd())
+	rootCmd.AddCommand(aliasCmd())
+	rootCmd.AddCommand(tagCmd())
 	rootCmd.AddCommand(versionCmd())
 
 	return rootCmd
