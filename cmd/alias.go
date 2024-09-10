@@ -1,6 +1,11 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+	"sort"
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	"github.com/bomctl/bomctl/internal/pkg/db"
@@ -19,13 +24,51 @@ func aliasCmd() *cobra.Command {
 		Long:  "Edit the alias for a document",
 	}
 
-	aliasCmd.AddCommand(aliasRemoveCmd(), aliasSetCmd())
+	aliasCmd.AddCommand(aliasListCmd(), aliasRemoveCmd(), aliasSetCmd())
 
 	return aliasCmd
 }
 
+func aliasListCmd() *cobra.Command {
+	aliasListCmd := &cobra.Command{
+		Use:     "list [flags]",
+		Aliases: []string{"ls"},
+		Short:   "List all alias definitions",
+		Long:    "List all alias definitions",
+		Args:    cobra.NoArgs,
+		Run: func(cmd *cobra.Command, _ []string) {
+			backend := backendFromContext(cmd)
+
+			defer backend.CloseClient()
+
+			documents, err := backend.GetDocumentsByID()
+			if err != nil {
+				backend.Logger.Fatal(err)
+			}
+
+			aliasDefinitions := []string{}
+
+			for _, doc := range documents {
+				alias, err := backend.GetDocumentUniqueAnnotation(doc.GetMetadata().GetId(), db.AliasAnnotation)
+				if err != nil {
+					backend.Logger.Fatalf("failed to get alias: %v", err)
+				}
+
+				aliasDefinitions = append(aliasDefinitions, fmt.Sprintf("%v → %v", alias, doc.GetMetadata().GetId()))
+			}
+
+			sort.Strings(aliasDefinitions)
+
+			fmt.Fprintf(os.Stdout, "\nAlias Definitions\n%v\n", strings.Repeat("─", cliTableWidth))
+			fmt.Fprintf(os.Stdout, "%v\n\n", strings.Join(aliasDefinitions, "\n"))
+		},
+	}
+
+	return aliasListCmd
+}
+
 func aliasRemoveCmd() *cobra.Command {
-	aliasCmd := &cobra.Command{
+	aliasRemoveCmd := &cobra.Command{
 		Use:     "remove [flags] SBOM_ID",
 		Aliases: []string{"rm"},
 		Short:   "Remove the alias for a specific document",
@@ -45,18 +88,19 @@ func aliasRemoveCmd() *cobra.Command {
 				backend.Logger.Fatal(errDocumentNotFound)
 			}
 
-			docAlias, err := backend.GetDocumentUniqueAnnotation(document.Metadata.Id, db.BomctlAnnotationAlias)
+			docAlias, err := backend.GetDocumentUniqueAnnotation(document.GetMetadata().GetId(), db.AliasAnnotation)
 			if err != nil {
 				backend.Logger.Fatal(err, "documentID", args[0])
 			}
 
-			if err := backend.RemoveAnnotations(document.Metadata.Id, db.BomctlAnnotationAlias, docAlias); err != nil {
-				backend.Logger.Fatal(err, "name", db.BomctlAnnotationAlias, "value", docAlias)
+			if err := backend.RemoveAnnotations(document.GetMetadata().GetId(),
+				db.AliasAnnotation, docAlias); err != nil {
+				backend.Logger.Fatal(err, "name", db.AliasAnnotation, "value", docAlias)
 			}
 		},
 	}
 
-	return aliasCmd
+	return aliasRemoveCmd
 }
 
 func aliasSetCmd() *cobra.Command {
@@ -79,18 +123,8 @@ func aliasSetCmd() *cobra.Command {
 				backend.Logger.Fatal(errDocumentNotFound)
 			}
 
-			docAlias, err := backend.GetDocumentUniqueAnnotation(document.Metadata.Id, db.BomctlAnnotationAlias)
-			if err != nil {
-				backend.Logger.Fatal(err)
-			}
-
-			if err := backend.RemoveAnnotations(document.Metadata.Id, db.BomctlAnnotationAlias, docAlias); err != nil {
-				backend.Logger.Fatal(err, db.BomctlAnnotationAlias, docAlias)
-			}
-
-			if err := backend.SetUniqueAnnotation(document.Metadata.Id,
-				db.BomctlAnnotationAlias, args[1]); err != nil {
-				backend.Logger.Fatal(err, db.BomctlAnnotationAlias, docAlias)
+			if err := backend.SetAlias(document.GetMetadata().GetId(), args[1]); err != nil {
+				backend.Logger.Fatal(err, "documentID", document.GetMetadata().GetId(), "alias", args[1])
 			}
 		},
 	}

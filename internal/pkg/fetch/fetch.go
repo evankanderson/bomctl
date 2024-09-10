@@ -52,12 +52,12 @@ func Fetch(sbomURL string, opts *options.FetchOptions) error {
 	}
 
 	if opts.Alias != "" {
-		if err := backend.SetUniqueAnnotation(doc.Metadata.Id, db.BomctlAnnotationAlias, opts.Alias); err != nil {
-			return fmt.Errorf("failed to set alias: %w", err)
+		if err := backend.SetAlias(doc.GetMetadata().GetId(), opts.Alias); err != nil {
+			return fmt.Errorf("%w", err)
 		}
 	}
 
-	if err := backend.AddAnnotations(doc.Metadata.Id, db.BomctlAnnotationTag, opts.Tags...); err != nil {
+	if err := backend.AddAnnotations(doc.GetMetadata().GetId(), db.TagAnnotation, opts.Tags...); err != nil {
 		return fmt.Errorf("failed to set tags: %w", err)
 	}
 
@@ -96,7 +96,7 @@ func GetRemoteDocument(sbomURL string, opts *options.FetchOptions) (*sbom.Docume
 }
 
 func fetchExternalReferences(document *sbom.Document, backend *db.Backend, opts *options.FetchOptions) error {
-	extRefs, err := backend.GetExternalReferencesByDocumentID(document.Metadata.Id, "BOM")
+	extRefs, err := backend.GetExternalReferencesByDocumentID(document.GetMetadata().GetId(), "BOM")
 	if err != nil {
 		return fmt.Errorf("error getting external references: %w", err)
 	}
@@ -113,7 +113,7 @@ func fetchExternalReferences(document *sbom.Document, backend *db.Backend, opts 
 			defer extRefsOpt.OutputFile.Close() //nolint:revive
 		}
 
-		if err := Fetch(ref.Url, &extRefsOpt); err != nil {
+		if err := Fetch(ref.GetUrl(), &extRefsOpt); err != nil {
 			return err
 		}
 	}

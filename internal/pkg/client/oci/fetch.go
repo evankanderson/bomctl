@@ -85,14 +85,16 @@ func (client *Client) getSBOMDescriptor(manifestDescriptor *ocispec.Descriptor) 
 	sbomDescriptor := ocispec.DescriptorEmptyJSON
 	sbomDigests := []string{}
 
-	for _, descriptor := range successors {
-		if slices.ContainsFunc([]string{"application/vnd.cyclonedx", "application/spdx", "text/spdx"},
-			func(s string) bool {
-				return strings.HasPrefix(descriptor.MediaType, s)
-			},
-		) {
-			sbomDescriptor = descriptor
-			sbomDigests = append(sbomDigests, descriptor.Digest.String())
+	for _, successor := range successors {
+		if slices.Contains([]string{
+			"application/vnd.cyclonedx",
+			"application/vnd.cyclonedx+json",
+			"application/spdx",
+			"application/spdx+json",
+			"text/spdx",
+		}, successor.MediaType) {
+			sbomDescriptor = successor
+			sbomDigests = append(sbomDigests, successor.Digest.String())
 		}
 	}
 

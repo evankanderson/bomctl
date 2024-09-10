@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -10,10 +12,10 @@ import (
 )
 
 const (
-	tagAddMinArgs     int = 2
-	tagClearExactArgs int = 1
-	tagListExactArgs  int = 1
-	tagRemoveMinArgs  int = 2
+	tagAddMinArgs     = 2
+	tagClearExactArgs = 1
+	tagListExactArgs  = 1
+	tagRemoveMinArgs  = 2
 )
 
 func tagCmd() *cobra.Command {
@@ -48,7 +50,8 @@ func tagAddCmd() *cobra.Command {
 				backend.Logger.Fatal(errDocumentNotFound)
 			}
 
-			if err := backend.AddAnnotations(document.Metadata.Id, db.BomctlAnnotationTag, args[1:]...); err != nil {
+			if err := backend.AddAnnotations(document.GetMetadata().GetId(),
+				db.TagAnnotation, args[1:]...); err != nil {
 				backend.Logger.Fatalf("failed to add tags: %v", err)
 			}
 		},
@@ -77,7 +80,8 @@ func tagClearCmd() *cobra.Command {
 				backend.Logger.Fatal(errDocumentNotFound)
 			}
 
-			annotationsToRemove, err := backend.GetDocumentAnnotations(document.Metadata.Id, db.BomctlAnnotationTag)
+			annotationsToRemove, err := backend.GetDocumentAnnotations(document.GetMetadata().GetId(),
+				db.TagAnnotation)
 			if err != nil {
 				backend.Logger.Fatalf("failed to clear tags: %v", err)
 			}
@@ -87,7 +91,7 @@ func tagClearCmd() *cobra.Command {
 				tagsToRemove[idx] = annotationsToRemove[idx].Value
 			}
 
-			err = backend.RemoveAnnotations(document.Metadata.Id, db.BomctlAnnotationTag, tagsToRemove...)
+			err = backend.RemoveAnnotations(document.GetMetadata().GetId(), db.TagAnnotation, tagsToRemove...)
 			if err != nil {
 				backend.Logger.Fatalf("failed to clear tags: %v", err)
 			}
@@ -118,14 +122,20 @@ func tagListCmd() *cobra.Command {
 				backend.Logger.Fatal(errDocumentNotFound)
 			}
 
-			annotations, err := backend.GetDocumentAnnotations(document.Metadata.Id, db.BomctlAnnotationTag)
+			annotations, err := backend.GetDocumentAnnotations(document.GetMetadata().GetId(), db.TagAnnotation)
 			if err != nil {
 				backend.Logger.Fatal("Failed to get document tags", "err", err)
 			}
 
-			for _, annotation := range annotations {
-				fmt.Fprintln(os.Stdout, annotation.Value)
+			tags := make([]string, len(annotations))
+			for idx := range annotations {
+				tags[idx] = annotations[idx].Value
 			}
+
+			sort.Strings(tags)
+
+			fmt.Fprintf(os.Stdout, "\nTags for %v\n%v\n", args[0], strings.Repeat("─", cliTableWidth))
+			fmt.Fprintf(os.Stdout, "%v\n\n", strings.Join(tags, "\n"))
 		},
 	}
 
@@ -134,7 +144,7 @@ func tagListCmd() *cobra.Command {
 
 func tagRemoveCmd() *cobra.Command {
 	removeCmd := &cobra.Command{
-		Use:     "remove [flags] SBOM_ID",
+		Use:     "remove [flags] SBOM_ID TAGS...",
 		Aliases: []string{"rm"},
 		Short:   "Remove the tags of a document",
 		Long:    "Remove the tags of a document",
@@ -153,7 +163,7 @@ func tagRemoveCmd() *cobra.Command {
 				backend.Logger.Fatal(errDocumentNotFound)
 			}
 
-			err = backend.RemoveAnnotations(document.Metadata.Id, db.BomctlAnnotationTag, args[1:]...)
+			err = backend.RemoveAnnotations(document.GetMetadata().GetId(), db.TagAnnotation, args[1:]...)
 			if err != nil {
 				backend.Logger.Fatalf("failed to remove tags: %v", err)
 			}

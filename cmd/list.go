@@ -32,12 +32,16 @@ import (
 
 const (
 	columnIdxID = iota
+	columnIdxAlias
 	columnIdxVersion
 	columnIdxNumNodes
 
-	columnWidthID       = 50
-	columnWidthVersion  = 10
-	columnWidthNumNodes = 10
+	columnWidthID       = 47
+	columnWidthAlias    = 12
+	columnWidthVersion  = 9
+	columnWidthNumNodes = 9
+
+	cellSideCount = 2
 
 	paddingHorizontal = 1
 	paddingVertical   = 0
@@ -108,6 +112,12 @@ func styleFunc(row, col int) lipgloss.Style {
 		if row != rowHeaderIdx {
 			align = lipgloss.Left
 		}
+	case columnIdxAlias:
+		width = columnWidthAlias
+
+		if row != rowHeaderIdx {
+			align = lipgloss.Left
+		}
 	case columnIdxVersion:
 		width = columnWidthVersion
 	case columnIdxNumNodes:
@@ -122,15 +132,21 @@ func styleFunc(row, col int) lipgloss.Style {
 }
 
 func getRow(doc *sbom.Document, backend *db.Backend) []string {
-	id := doc.Metadata.Name
+	id := doc.GetMetadata().GetName() //nolint:varnamelen
 	if id == "" {
-		id = doc.Metadata.Id
+		id = doc.GetMetadata().GetId()
 	}
 
-	alias, err := backend.GetDocumentUniqueAnnotation(doc.Metadata.Id, db.BomctlAnnotationAlias)
+	alias, err := backend.GetDocumentUniqueAnnotation(doc.GetMetadata().GetId(), db.AliasAnnotation)
 	if err != nil {
 		backend.Logger.Fatalf("failed to get alias: %v", err)
 	}
 
-	return []string{id, alias, doc.Metadata.Version, fmt.Sprint(len(doc.NodeList.Nodes))}
+	aliasMaxDisplayLength := columnWidthAlias - (paddingHorizontal * cellSideCount)
+
+	if len(alias) > aliasMaxDisplayLength {
+		alias = alias[:aliasMaxDisplayLength-1] + "…"
+	}
+
+	return []string{id, alias, doc.GetMetadata().GetVersion(), fmt.Sprint(len(doc.GetNodeList().GetNodes()))}
 }
