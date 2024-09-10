@@ -2,8 +2,6 @@ module github.com/bomctl/bomctl
 
 go 1.23.0
 
-replace github.com/protobom/storage => ../protobom-storage
-
 require (
 	github.com/charmbracelet/lipgloss v0.12.1
 	github.com/charmbracelet/log v0.4.0
